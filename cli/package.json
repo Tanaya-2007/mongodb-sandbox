@@ -1,0 +1,25 @@
+{
+  "name": "mongo-sandbox",
+  "version": "1.0.0",
+  "description": "Developer CLI tool to provision a unique MongoDB sandbox and inject connection string into project .env files",
+  "type": "module",
+  "main": "./src/bin/index.js",
+  "bin": {
+    "mongo-sandbox": "./src/bin/index.js"
+  },
+  "keywords": [
+    "mongodb",
+    "sandbox",
+    "provisioner",
+    "cli"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "boxen": "^7.1.1",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ora": "^8.0.1"
+  }
+}
