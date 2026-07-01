@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const path = require('path');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const SandboxAssignment = require('./models/SandboxAssignment');
 
@@ -14,6 +16,9 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Connection cache map: dbName -> Mongoose Connection Object
+const connectionCache = {};
 
 /**
  * Robust helper to inject the database name into the MongoDB URI.
@@ -42,29 +47,47 @@ function buildConnectionString(baseUri, dbName) {
   }
 }
 
+/**
+ * Returns a cached Mongoose connection for a specific database sandbox,
+ * creating it if it doesn't already exist or has closed.
+ */
+function getDatabaseConnection(dbName) {
+  if (connectionCache[dbName] && connectionCache[dbName].readyState === 1) {
+    return connectionCache[dbName];
+  }
+  
+  const baseUri = process.env.MONGODB_ATLAS_URI;
+  const connectionString = buildConnectionString(baseUri, dbName);
+  
+  // Establish an isolated connection to the specific sandbox database
+  const conn = mongoose.createConnection(connectionString);
+  connectionCache[dbName] = conn;
+  return conn;
+}
+
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     message: 'MongoDB Sandbox Provisioner API is running',
-    version: '1.0.0'
+    version: '1.1.0'
   });
 });
 
 // Endpoint to request/retrieve a sandbox assignment
 app.post('/api/sandbox', async (req, res) => {
   try {
-    const { deviceId } = req.body;
+    const { deviceId, projectKey } = req.body;
 
-    if (!deviceId) {
+    if (!deviceId || !projectKey) {
       return res.status(400).json({
         success: false,
-        error: 'Missing deviceId in request body'
+        error: 'Missing deviceId or projectKey in request body'
       });
     }
 
-    // Check if device already has a database assignment
-    let assignment = await SandboxAssignment.findOne({ deviceId });
+    // Check if device already has a database assignment for this specific project
+    let assignment = await SandboxAssignment.findOne({ deviceId, projectKey });
 
     if (!assignment) {
       // Generate a unique 8-character hex suffix for the database name
@@ -74,6 +97,7 @@ app.post('/api/sandbox', async (req, res) => {
       // Create new assignment in the database
       assignment = await SandboxAssignment.create({
         deviceId,
+        projectKey,
         databaseName
       });
     }
@@ -84,6 +108,7 @@ app.post('/api/sandbox', async (req, res) => {
     return res.json({
       success: true,
       deviceId: assignment.deviceId,
+      projectKey: assignment.projectKey,
       databaseName: assignment.databaseName,
       mongodbUri
     });
@@ -92,6 +117,78 @@ app.post('/api/sandbox', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Server error occurred while provisioning sandbox database'
+    });
+  }
+});
+
+// Route: Web Database Visualizer UI Page
+app.get('/sandbox/:databaseName', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/visualizer.html'));
+});
+
+// API: List all collections in a sandbox database
+app.get('/api/sandbox/:databaseName/collections', async (req, res) => {
+  try {
+    const { databaseName } = req.params;
+    const conn = getDatabaseConnection(databaseName);
+
+    // Wait for Mongoose to establish the connection
+    await new Promise((resolve, reject) => {
+      if (conn.readyState === 1) resolve();
+      else {
+        conn.once('open', resolve);
+        conn.once('error', reject);
+      }
+    });
+
+    const collections = await conn.db.listCollections().toArray();
+    const names = collections
+      .map(col => col.name)
+      .filter(name => !name.startsWith('system.')); // Filter out system collections
+
+    res.json({
+      success: true,
+      collections: names
+    });
+  } catch (error) {
+    console.error(`Error listing collections for ${req.params.databaseName}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve collections'
+    });
+  }
+});
+
+// API: List all documents in a selected collection
+app.get('/api/sandbox/:databaseName/collections/:collectionName', async (req, res) => {
+  try {
+    const { databaseName, collectionName } = req.params;
+    const conn = getDatabaseConnection(databaseName);
+
+    // Wait for connection readiness
+    await new Promise((resolve, reject) => {
+      if (conn.readyState === 1) resolve();
+      else {
+        conn.once('open', resolve);
+        conn.once('error', reject);
+      }
+    });
+
+    const documents = await conn.db
+      .collection(collectionName)
+      .find({})
+      .limit(50) // Limit to top 50 documents to prevent payload bloat
+      .toArray();
+
+    res.json({
+      success: true,
+      documents
+    });
+  } catch (error) {
+    console.error(`Error fetching documents for ${databaseName}/${collectionName}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve documents'
     });
   }
 });
