@@ -17,6 +17,7 @@
       --accent-blue: #3b82f6;
       --accent-glow: #60a5fa;
       --accent-green: #10b981;
+      --accent-red: #ef4444;
       --border-color: #24324f;
     }
 
@@ -165,6 +166,12 @@
       color: white;
     }
 
+    .badges-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .status-badge {
       display: flex;
       align-items: center;
@@ -172,6 +179,19 @@
       background-color: rgba(16, 185, 129, 0.1);
       border: 1px solid rgba(16, 185, 129, 0.2);
       color: var(--accent-green);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .storage-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background-color: rgba(96, 165, 250, 0.1);
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      color: var(--accent-glow);
       padding: 6px 14px;
       border-radius: 20px;
       font-size: 0.85rem;
@@ -205,35 +225,110 @@
     .card-list {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 8px; /* Tighter gap between cards */
     }
 
     .doc-card {
       background-color: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: 12px;
+      border-radius: 8px; /* More compact borders */
       overflow: hidden;
       transition: border-color 0.2s ease;
     }
 
     .doc-card:hover {
-      border-color: var(--accent-blue);
+      border-color: #3b82f677;
     }
 
     .doc-header {
-      padding: 14px 20px;
+      padding: 8px 16px; /* Reduced header padding */
       background-color: rgba(25, 35, 58, 0.3);
-      border-bottom: 1px solid var(--border-color);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.85rem;
-      color: var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .collapse-toggle {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      user-select: none;
+    }
+
+    .collapse-arrow {
+      transition: transform 0.2s ease;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      display: inline-block;
+    }
+
+    /* Arrow rotation logic */
+    .doc-card.collapsed .collapse-arrow {
+      transform: rotate(0deg);
+    }
+    
+    .doc-card:not(.collapsed) .collapse-arrow {
+      transform: rotate(90deg);
+    }
+
+    .doc-card.collapsed .doc-body {
+      display: none;
+    }
+
+    .doc-card:not(.collapsed) .doc-header {
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.8rem;
       font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .delete-btn:hover {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+    }
+
+    .delete-all-btn {
+      background-color: transparent;
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .delete-all-btn:hover {
+      background-color: var(--accent-red);
+      color: white;
+      border-color: var(--accent-red);
     }
 
     .doc-body {
-      padding: 20px;
+      padding: 16px 20px; /* Reduced vertical padding inside JSON body */
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
+      font-size: 0.85rem; /* Slightly smaller code font */
       line-height: 1.5;
       overflow-x: auto;
       white-space: pre-wrap;
@@ -286,7 +381,7 @@
       background-color: var(--accent-blue);
       color: white;
       border: none;
-      padding: 10px 20px;
+      padding: 8px 16px;
       border-radius: 8px;
       font-family: 'Outfit', sans-serif;
       font-weight: 500;
@@ -327,7 +422,6 @@
     <div class="collections-section">
       <div class="section-title">Collections</div>
       <ul class="collection-list" id="collection-list">
-        <!-- Dynamically populated -->
         <li style="color: var(--text-muted); padding: 8px; font-size: 0.9rem;">Loading...</li>
       </ul>
     </div>
@@ -340,9 +434,14 @@
         <span class="db-label">Target Database</span>
         <span class="db-value" id="db-name-header">...</span>
       </div>
-      <div class="status-badge">
-        <div class="status-dot"></div>
-        <span>Live Connection</span>
+      <div class="badges-container">
+        <div class="storage-badge" title="Database hosted location">
+          <span>💾 Storage: Local MongoDB</span>
+        </div>
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          <span>Live Connection</span>
+        </div>
       </div>
     </div>
 
@@ -357,7 +456,6 @@
   </div>
 
   <script>
-    // Extract database name from the URL path
     const pathParts = window.location.pathname.split('/');
     const dbName = pathParts[pathParts.length - 1];
     
@@ -368,7 +466,7 @@
     // Helper to format JSON with color highlighting
     function syntaxHighlight(json) {
       if (typeof json !== 'string') {
-        json = JSON.stringify(json, undefined, 2);
+        json = JSON.stringify(json, null, 2);
       }
       json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -416,6 +514,58 @@
       }
     }
 
+    // Toggle card expansion/collapse
+    function toggleCard(docId) {
+      const card = document.getElementById(`card-${docId}`);
+      if (card) {
+        card.classList.toggle('collapsed');
+      }
+    }
+
+    // Delete a specific document
+    async function deleteDocument(event, docId) {
+      event.stopPropagation();
+      
+      const confirmDelete = confirm('Are you sure you want to permanently delete this document?');
+      if (!confirmDelete) return;
+
+      try {
+        const res = await fetch(`/api/sandbox/${dbName}/collections/${activeCollection}/${docId}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          selectCollection(activeCollection);
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (err) {
+        alert('Network error: Failed to delete document.');
+      }
+    }
+
+    // Clear entire collection
+    async function clearCollection() {
+      const confirmClear = confirm(`⚠️ WARNING: Are you sure you want to delete ALL documents in "${activeCollection}"?\nThis action cannot be undone!`);
+      if (!confirmClear) return;
+
+      try {
+        const res = await fetch(`/api/sandbox/${dbName}/collections/${activeCollection}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          selectCollection(activeCollection);
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (err) {
+        alert('Network error: Failed to clear collection.');
+      }
+    }
+
     // Select and display collection documents
     async function selectCollection(col, element) {
       activeCollection = col;
@@ -448,18 +598,32 @@
           return;
         }
 
-        // Render documents
+        // Render documents header with Clear Collection button
         let cardsHtml = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
           <h2 style="font-weight:600; font-size:1.4rem;">Documents in "${col}"</h2>
-          <button class="refresh-btn" onclick="selectCollection('${col}')">Refresh Data</button>
+          <div style="display:flex; gap:10px;">
+            <button class="delete-all-btn" onclick="clearCollection()">🗑️ Clear Collection</button>
+            <button class="refresh-btn" onclick="selectCollection('${col}')">Refresh Data</button>
+          </div>
         </div>
         <div class="card-list">`;
         
         data.documents.forEach(doc => {
           const docId = doc._id || 'Unknown ID';
+          const docIdStr = String(docId);
+          
+          // Cards are rendered with 'collapsed' class by default for compact list view
           cardsHtml += `
-            <div class="doc-card">
-              <div class="doc-header">_id: ${docId}</div>
+            <div class="doc-card collapsed" id="card-${docIdStr}">
+              <div class="doc-header">
+                <div class="collapse-toggle" onclick="toggleCard('${docIdStr}')">
+                  <span class="collapse-arrow">▶</span>
+                  <span style="color: var(--accent-glow); font-weight: 500;">_id: ${docId}</span>
+                </div>
+                <button class="delete-btn" onclick="deleteDocument(event, '${docIdStr}')" title="Delete Document">
+                  🗑️ Delete
+                </button>
+              </div>
               <div class="doc-body">${syntaxHighlight(doc)}</div>
             </div>
           `;
@@ -481,7 +645,7 @@
     // Initialize Page
     loadCollections();
     
-    // Auto refresh collections list every 10 seconds in case they write from local app
+    // Auto-refresh collections list in background every 10 seconds
     setInterval(loadCollections, 10000);
   </script>
 </body>

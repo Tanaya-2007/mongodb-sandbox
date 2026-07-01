@@ -121,13 +121,99 @@ app.post('/api/sandbox', async (req, res) => {
   }
 });
 
+/**
+ * Middleware to validate the database name parameter.
+ * Prevents calling MongoDB with invalid namespaces (like literal ':databaseName').
+ */
+function validateDatabaseName(req, res, next) {
+  const { databaseName } = req.params;
+  if (!databaseName || !databaseName.startsWith('sandbox_dev_')) {
+    // If the browser requested an HTML page, serve a beautiful help page
+    if (req.accepts('html')) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invalid Sandbox Namespace</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+          <style>
+            body {
+              font-family: 'Outfit', sans-serif;
+              background-color: #0b0f19;
+              color: #f3f4f6;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+            }
+            .container {
+              background-color: #151c2c;
+              border: 1px solid #24324f;
+              padding: 40px;
+              border-radius: 16px;
+              max-width: 500px;
+              text-align: center;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            }
+            h1 {
+              color: #f28b82;
+              font-size: 1.8rem;
+              margin-bottom: 16px;
+            }
+            p {
+              color: #9ca3af;
+              line-height: 1.6;
+              margin-bottom: 24px;
+            }
+            .code-block {
+              background-color: #0f1422;
+              border: 1px solid #24324f;
+              padding: 12px;
+              border-radius: 8px;
+              font-family: monospace;
+              color: #60a5fa;
+              font-size: 0.95rem;
+              margin-bottom: 24px;
+            }
+            .footer {
+              font-size: 0.85rem;
+              color: #6b7280;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Oops! Invalid Sandbox Link</h1>
+            <p>You accessed a template or malformed link. To view your database visualizer, you must run <code>mongo-sandbox</code> in your project terminal and use the specific URL generated for your directory.</p>
+            <div class="code-block">http://localhost:5000/sandbox/sandbox_dev_xxxxxx</div>
+            <div class="footer">MongoDB Sandbox Provisioner Utility</div>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Fallback for API/JSON calls
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid sandbox database name format. Must start with sandbox_dev_'
+    });
+  }
+  next();
+}
+
 // Route: Web Database Visualizer UI Page
-app.get('/sandbox/:databaseName', (req, res) => {
+app.get('/sandbox/:databaseName', validateDatabaseName, (req, res) => {
   res.sendFile(path.join(__dirname, 'public/visualizer.html'));
 });
 
 // API: List all collections in a sandbox database
-app.get('/api/sandbox/:databaseName/collections', async (req, res) => {
+app.get('/api/sandbox/:databaseName/collections', validateDatabaseName, async (req, res) => {
   try {
     const { databaseName } = req.params;
     const conn = getDatabaseConnection(databaseName);
@@ -160,7 +246,7 @@ app.get('/api/sandbox/:databaseName/collections', async (req, res) => {
 });
 
 // API: List all documents in a selected collection
-app.get('/api/sandbox/:databaseName/collections/:collectionName', async (req, res) => {
+app.get('/api/sandbox/:databaseName/collections/:collectionName', validateDatabaseName, async (req, res) => {
   try {
     const { databaseName, collectionName } = req.params;
     const conn = getDatabaseConnection(databaseName);
@@ -193,7 +279,83 @@ app.get('/api/sandbox/:databaseName/collections/:collectionName', async (req, re
   }
 });
 
+// API: Delete a specific document from a selected collection
+app.delete('/api/sandbox/:databaseName/collections/:collectionName/:id', validateDatabaseName, async (req, res) => {
+  try {
+    const { databaseName, collectionName, id } = req.params;
+    const conn = getDatabaseConnection(databaseName);
+
+    await new Promise((resolve, reject) => {
+      if (conn.readyState === 1) resolve();
+      else {
+        conn.once('open', resolve);
+        conn.once('error', reject);
+      }
+    });
+
+    // Parse the id: use Mongoose ObjectId if valid 24-character hex string, otherwise fallback to standard string
+    let queryId = id;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      queryId = new mongoose.Types.ObjectId(id);
+    }
+
+    const result = await conn.db
+      .collection(collectionName)
+      .deleteOne({ _id: queryId });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Document not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Document deleted successfully'
+    });
+  } catch (error) {
+    console.error(`Error deleting document ${id} from ${databaseName}/${collectionName}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete document'
+    });
+  }
+});
+
+// API: Delete all documents (clear) in a selected collection
+app.delete('/api/sandbox/:databaseName/collections/:collectionName', validateDatabaseName, async (req, res) => {
+  try {
+    const { databaseName, collectionName } = req.params;
+    const conn = getDatabaseConnection(databaseName);
+
+    await new Promise((resolve, reject) => {
+      if (conn.readyState === 1) resolve();
+      else {
+        conn.once('open', resolve);
+        conn.once('error', reject);
+      }
+    });
+
+    const result = await conn.db
+      .collection(collectionName)
+      .deleteMany({});
+
+    res.json({
+      success: true,
+      message: `Cleared ${result.deletedCount} documents successfully`
+    });
+  } catch (error) {
+    console.error(`Error clearing collection ${collectionName} in ${databaseName}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear collection'
+    });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Sandbox Visualizer active at http://localhost:${PORT}/sandbox/:databaseName`);
 });
