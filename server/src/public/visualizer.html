@@ -225,13 +225,13 @@
     .card-list {
       display: flex;
       flex-direction: column;
-      gap: 8px; /* Tighter gap between cards */
+      gap: 8px;
     }
 
     .doc-card {
       background-color: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: 8px; /* More compact borders */
+      border-radius: 8px;
       overflow: hidden;
       transition: border-color 0.2s ease;
     }
@@ -241,7 +241,7 @@
     }
 
     .doc-header {
-      padding: 8px 16px; /* Reduced header padding */
+      padding: 8px 16px;
       background-color: rgba(25, 35, 58, 0.3);
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.85rem;
@@ -304,6 +304,15 @@
       color: var(--accent-red);
     }
 
+    /* Collection List Header Container */
+    .doc-list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+
     .delete-all-btn {
       background-color: transparent;
       color: var(--accent-red);
@@ -326,9 +335,9 @@
     }
 
     .doc-body {
-      padding: 16px 20px; /* Reduced vertical padding inside JSON body */
+      padding: 16px 20px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem; /* Slightly smaller code font */
+      font-size: 0.85rem;
       line-height: 1.5;
       overflow-x: auto;
       white-space: pre-wrap;
@@ -391,6 +400,91 @@
 
     .refresh-btn:hover {
       background-color: #2563eb;
+    }
+
+    /* Responsive Media Queries (Mobile/Tablet Support) */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .brand {
+        padding: 16px 20px;
+      }
+
+      .collections-section {
+        padding: 12px 20px;
+        max-height: 180px;
+        overflow-y: auto;
+      }
+
+      .collection-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .collection-item {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+      }
+
+      .header {
+        height: auto;
+        padding: 16px 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .badges-container {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status-badge, .storage-badge {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+      }
+
+      .console-area {
+        padding: 20px 16px;
+      }
+
+      .doc-list-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .doc-list-header div {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .doc-header {
+        padding: 8px 12px;
+      }
+
+      .delete-btn {
+        padding: 2px 6px;
+        font-size: 0.75rem;
+      }
+
+      .delete-all-btn, .refresh-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+      }
     }
 
     /* Scrollbar override */
@@ -599,8 +693,8 @@
         }
 
         // Render documents header with Clear Collection button
-        let cardsHtml = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
-          <h2 style="font-weight:600; font-size:1.4rem;">Documents in "${col}"</h2>
+        let cardsHtml = `<div class="doc-list-header">
+          <h2 style="font-weight:600; font-size:1.3rem;">Documents in "${col}"</h2>
           <div style="display:flex; gap:10px;">
             <button class="delete-all-btn" onclick="clearCollection()">🗑️ Clear Collection</button>
             <button class="refresh-btn" onclick="selectCollection('${col}')">Refresh Data</button>
@@ -612,7 +706,6 @@
           const docId = doc._id || 'Unknown ID';
           const docIdStr = String(docId);
           
-          // Cards are rendered with 'collapsed' class by default for compact list view
           cardsHtml += `
             <div class="doc-card collapsed" id="card-${docIdStr}">
               <div class="doc-header">
