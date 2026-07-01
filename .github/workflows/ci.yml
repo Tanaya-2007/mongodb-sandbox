@@ -1,0 +1,55 @@
+name: Node.js CI (MongoDB Sandbox API Test)
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+
+    # Setup a background MongoDB database service for our tests to connect to
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'server/package-lock.json'
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
+
+    - name: Setup test environment variables
+      run: |
+        cd server
+        echo "PORT=5000" > .env
+        echo "MONGODB_ATLAS_URI=mongodb://127.0.0.1:27017/" >> .env
+        echo "MANAGEMENT_DB_URI=mongodb://127.0.0.1:27017/sandbox_management" >> .env
+
+    - name: Start Express Server & Run Integration Tests
+      run: |
+        cd server
+        # Start server in the background (&) and redirect output to a log file
+        npm start > server.log 2>&1 &
+        
+        # Wait a few seconds for MongoDB and the Express server to fully initialize
+        sleep 4
+        
+        # Run our test script
+        node test-api.js
+      env:
+        CI: true
