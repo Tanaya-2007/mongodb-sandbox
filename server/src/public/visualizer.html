@@ -530,7 +530,7 @@
       </div>
       <div class="badges-container">
         <div class="storage-badge" title="Database hosted location">
-          <span>💾 Storage: Local MongoDB</span>
+          <span id="storage-badge-text">💾 Storage: Local MongoDB</span>
         </div>
         <div class="status-badge">
           <div class="status-dot"></div>
@@ -554,6 +554,14 @@
     const dbName = pathParts[pathParts.length - 1];
     
     document.getElementById('db-name-header').innerText = dbName;
+
+    // Set storage badge based on hostname
+    const storageBadgeText = document.getElementById('storage-badge-text');
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      storageBadgeText.innerText = '💾 Storage: Local MongoDB';
+    } else {
+      storageBadgeText.innerText = '☁️ Storage: MongoDB Atlas';
+    }
     
     let activeCollection = null;
 
