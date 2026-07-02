@@ -12,7 +12,7 @@ import { getOrCreateDeviceId } from '../utils/config.js';
 import { updateEnvFile } from '../utils/env.js';
 
 // Default Provisioner Server URL (can be overridden via environment variable)
-const DEFAULT_SERVER_URL = process.env.MONGO_SANDBOX_SERVER || 'http://localhost:5000';
+const DEFAULT_SERVER_URL = process.env.MONGO_SANDBOX_SERVER || 'https://mongodb-sandbox.onrender.com';
 
 /**
  * Attempts to retrieve a friendly project name from package.json in the current working directory.
