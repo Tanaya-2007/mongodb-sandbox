@@ -20,6 +20,16 @@ const SandboxAssignmentSchema = new mongoose.Schema({
     trim: true,
     index: true,
   },
+  dbUsername: {
+    type: String,
+    required: [true, 'Database username is required'],
+    trim: true,
+  },
+  dbPassword: {
+    type: String,
+    required: [true, 'Database password is required'],
+    trim: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

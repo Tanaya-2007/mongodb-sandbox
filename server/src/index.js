@@ -6,6 +6,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const SandboxAssignment = require('./models/SandboxAssignment');
+const { createAtlasDatabaseUser } = require('./utils/atlas');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -94,16 +95,71 @@ app.post('/api/sandbox', async (req, res) => {
       const suffix = crypto.randomBytes(4).toString('hex');
       const databaseName = `sandbox_dev_${suffix}`;
 
+      let dbUsername = 'local_dev';
+      let dbPassword = 'local_password';
+
+      const hasAtlasKeys = process.env.ATLAS_PUBLIC_KEY && process.env.ATLAS_PRIVATE_KEY && process.env.ATLAS_PROJECT_ID;
+
+      if (hasAtlasKeys) {
+        dbUsername = `user_${suffix}`;
+        dbPassword = crypto.randomBytes(8).toString('hex');
+
+        // Create the database user in the cloud
+        await createAtlasDatabaseUser(dbUsername, dbPassword, databaseName);
+      } else {
+        console.warn('⚠️ WARNING: Atlas API keys are not configured. Running in Local Development Fallback mode.');
+        
+        // In production, we must fail if keys are missing to protect credentials
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(500).json({
+            success: false,
+            error: 'Atlas API keys must be configured in production mode'
+          });
+        }
+
+        // For local development, fallback to the credentials already in MONGODB_ATLAS_URI if present
+        try {
+          if (process.env.MONGODB_ATLAS_URI.includes('@')) {
+            const authPart = process.env.MONGODB_ATLAS_URI.split('://')[1].split('@')[0];
+            if (authPart.includes(':')) {
+              dbUsername = authPart.split(':')[0];
+              dbPassword = authPart.split(':')[1];
+            } else {
+              dbUsername = authPart;
+              dbPassword = '';
+            }
+          }
+        } catch (e) {
+          // Fallback stays as local_dev
+        }
+      }
+
       // Create new assignment in the database
       assignment = await SandboxAssignment.create({
         deviceId,
         projectKey,
-        databaseName
+        databaseName,
+        dbUsername,
+        dbPassword
       });
     }
 
-    // Build the connection string using the base MONGODB_ATLAS_URI env var
-    const mongodbUri = buildConnectionString(process.env.MONGODB_ATLAS_URI, assignment.databaseName);
+    // Build the connection string using the assignment credentials
+    let mongodbUri;
+    const baseUri = process.env.MONGODB_ATLAS_URI;
+    if (baseUri.includes('@')) {
+      const hostAndDb = baseUri.split('@')[1];
+      const cleanHost = hostAndDb.split('/')[0];
+      const isSrv = baseUri.startsWith('mongodb+srv://');
+      const scheme = isSrv ? 'mongodb+srv' : 'mongodb';
+      mongodbUri = `${scheme}://${assignment.dbUsername}:${assignment.dbPassword}@${cleanHost}/${assignment.databaseName}?retryWrites=true&w=majority`;
+    } else {
+      // Local fallback without auth
+      const isSrv = baseUri.startsWith('mongodb+srv://');
+      const scheme = isSrv ? 'mongodb+srv' : 'mongodb';
+      const cleanHost = baseUri.replace('mongodb://', '').replace('mongodb+srv://', '').split('/')[0];
+      mongodbUri = `${scheme}://${cleanHost}/${assignment.databaseName}`;
+    }
 
     return res.json({
       success: true,
