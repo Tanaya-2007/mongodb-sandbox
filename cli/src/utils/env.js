@@ -7,9 +7,10 @@ import path from 'path';
  * @param {string} mongodbUri The connection string returned from the API server.
  * @returns {Promise<void>}
  */
-export async function updateEnvFile(mongodbUri) {
+export async function updateEnvFile(mongodbUri, visualizerUrl) {
   const envPath = path.join(process.cwd(), '.env');
   const envLine = `MONGODB_URI=${mongodbUri}`;
+  const commentLine = visualizerUrl ? `# MongoDB Sandbox Visualizer: ${visualizerUrl}` : null;
   
   try {
     // Check if the .env file already exists
@@ -20,14 +21,26 @@ export async function updateEnvFile(mongodbUri) {
     const lines = content.split(/\r?\n/);
     
     let keyFound = false;
-    const updatedLines = lines.map(line => {
-      // Look for a line that starts with MONGODB_URI= (ignoring whitespace before/after MONGODB_URI)
+    const updatedLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Skip any old visualizer comment line so we do not duplicate it
+      if (commentLine && line.trim().startsWith('# MongoDB Sandbox Visualizer:')) {
+        continue;
+      }
+      
       if (line.trim().startsWith('MONGODB_URI=')) {
         keyFound = true;
-        return envLine;
+        if (commentLine) {
+          updatedLines.push(commentLine);
+        }
+        updatedLines.push(envLine);
+      } else {
+        updatedLines.push(line);
       }
-      return line;
-    });
+    }
     
     // If the key wasn't in the file, append it to the end
     if (!keyFound) {
@@ -35,13 +48,17 @@ export async function updateEnvFile(mongodbUri) {
       if (updatedLines.length > 0 && updatedLines[updatedLines.length - 1].trim() !== '') {
         updatedLines.push('');
       }
+      if (commentLine) {
+        updatedLines.push(commentLine);
+      }
       updatedLines.push(envLine);
     }
     
     // Write back the updated file contents
     await fs.writeFile(envPath, updatedLines.join('\n'), 'utf8');
   } catch (error) {
-    // The .env file doesn't exist, create it with our connection string
-    await fs.writeFile(envPath, `${envLine}\n`, 'utf8');
+    // The .env file doesn't exist, create it
+    const newContent = commentLine ? `${commentLine}\nMONGODB_URI=${mongodbUri}\n` : `MONGODB_URI=${mongodbUri}\n`;
+    await fs.writeFile(envPath, newContent, 'utf8');
   }
 }

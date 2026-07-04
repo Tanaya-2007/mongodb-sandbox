@@ -72,16 +72,16 @@ program
         throw new Error(error || 'Failed to retrieve connection string from server');
       }
 
-      // 4. Inject connection string into local .env file
-      spinner.text = 'Writing connection string to .env...';
-      await updateEnvFile(mongodbUri);
-
-      // 5. Complete successfully
-      spinner.succeed(chalk.green('Sandbox database provisioned successfully!'));
-
       // Construct live visualizer URL
       const baseUrl = options.server.replace(/\/$/, '');
       const visualizerUrl = `${baseUrl}/sandbox/${databaseName}`;
+
+      // 4. Inject connection string into local .env file
+      spinner.text = 'Writing connection string to .env...';
+      await updateEnvFile(mongodbUri, visualizerUrl);
+
+      // 5. Complete successfully
+      spinner.succeed(chalk.green('Sandbox database provisioned successfully!'));
 
       const successBox = boxen(
         [

@@ -102,22 +102,22 @@ app.post('/api/sandbox', async (req, res) => {
       const hasAtlasKeys = process.env.ATLAS_PUBLIC_KEY && process.env.ATLAS_PRIVATE_KEY && process.env.ATLAS_PROJECT_ID;
 
       if (hasSandboxCreds) {
-        // Option A: Use the pre-created static sandbox developer user (No Atlas API calls needed)
+        // Use static sandbox developer credentials if configured
         dbUsername = process.env.SANDBOX_DB_USER;
         dbPassword = process.env.SANDBOX_DB_PASSWORD;
       } else if (hasAtlasKeys) {
-        // Mode B: Create a dynamic user per database using Atlas Admin API
+        // Dynamically create a unique database user per sandbox via Atlas API
         dbUsername = `user_${suffix}`;
         dbPassword = crypto.randomBytes(8).toString('hex');
         await createAtlasDatabaseUser(dbUsername, dbPassword, databaseName);
       } else {
-        console.warn('⚠️ WARNING: Static Sandbox Credentials or Atlas API keys are not configured. Running in Local Development Fallback mode.');
+        console.warn('⚠️ WARNING: Sandbox credentials or Atlas API keys are not configured. Running in Local Development Fallback mode.');
         
         // In production, we must have either static credentials or Atlas API keys
         if (process.env.NODE_ENV === 'production') {
           return res.status(500).json({
             success: false,
-            error: 'Database credentials (SANDBOX_DB_USER/PASSWORD) or Atlas API keys must be configured in production mode'
+            error: 'Sandbox credentials or Atlas API keys must be configured in production mode'
           });
         }
 

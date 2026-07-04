@@ -1,6 +1,6 @@
 {
   "name": "mongo-sandbox",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Developer CLI tool to provision a unique MongoDB sandbox and inject connection string into project .env files",
   "type": "module",
   "main": "./src/bin/index.js",
