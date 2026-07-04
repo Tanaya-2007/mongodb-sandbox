@@ -30,7 +30,7 @@ npx mongo-sandbox
 3. Your local `.env` file is updated:
    ```env
    # MongoDB Sandbox Visualizer: https://mongodb-sandbox.onrender.com/sandbox/sandbox_dev_a1b2c3d4
-   MONGODB_URI=mongodb+srv://sandbox_developer:oHVD1SJnQhwGFjc3@cluster0.zdwbu4z.mongodb.net/sandbox_dev_a1b2c3d4?retryWrites=true&w=majority
+   MONGODB_URI=mongodb+srv://sandbox_developer:<password>@cluster0.zdwbu4z.mongodb.net/sandbox_dev_a1b2c3d4?retryWrites=true&w=majority
    ```
 4. Connect to the database inside your Node.js application:
    ```javascript
